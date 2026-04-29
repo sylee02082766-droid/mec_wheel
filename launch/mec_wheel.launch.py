@@ -45,7 +45,6 @@ def generate_launch_description():
                 'filter_alpha': 0.35,
                 'control_period': 0.10,
 
-                # 실제 회전 방향이 반대로 나오면 1.0 -> -1.0
                 'search_yaw_sign': 1.0,
                 'align_yaw_sign': 1.0
             }]
