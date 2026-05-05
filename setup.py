@@ -22,7 +22,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'mec_wheel_node = mec_wheel.mec_wheel_node:main'
+            'mec_wheel_node = mec_wheel.mec_wheel_node:main',
+            'depth_center_node = mec_wheel.depth_center_node:main'
         ],
     },
 )
