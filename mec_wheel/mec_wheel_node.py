@@ -57,7 +57,8 @@ class MecWheel(Node):
             
             if self.has_depth:
                 # 1.5m 거리 유지하게 하기
-                msg.linear.z = 1.0 * (self.depth_distance - 1.5)
+                z_cmd = 0.8 * (self.marker_z - 1.5)
+                msg.linear.z = max(-0.10, min(0.10, z_cmd))
             
             self.get_logger().info('blind_orbit')
             
@@ -85,7 +86,11 @@ class MecWheel(Node):
         elif self.state == "approach":
             if self.has_marker:
                 if self.marker_z > 0.3:
-                    msg.linear.z = 0.15
+                    z_error = self.marker_z - 0.3
+                    z_cmd = 0.5 * z_error
+                    msg.linear.z = max(0.03, min(0.12, z_cmd))
+                    x_cmd = 0.8 * self.marker_x
+                    msg.linear.x = max(-0.18, min(0.18, x_cmd))
                     self.get_logger().info('approach')
                 else:
                     self.state = "stop"
