@@ -9,12 +9,12 @@ class MecWheel(Node):
         super().__init__('mec_wheel_node')
         
         # Publisher
-        self.cmd_vel_pub = self.create_publisher(Twist, 'cmd_vel', 10)
-        self.status_pub = self.create_publisher(String, 'wheel_status', 10) 
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.status_pub = self.create_publisher(String, '/wheel_status', 10) 
         
         # Subscriber
-        self.pose_sub = self.create_subscription(PoseArray, 'aruco_poses', self.aruco_callback, 10)
-        self.depth_sub = self.create_subscription(Float32, 'target_depth', self.depth_callback, 10)
+        self.pose_sub = self.create_subscription(PoseArray, '/aruco_tf', self.aruco_callback, 10)
+        self.depth_sub = self.create_subscription(Float32, '/target_depth', self.depth_callback, 10)
         
         self.state = "blind_orbit"
         self.marker_x = 0.0  
