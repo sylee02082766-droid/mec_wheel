@@ -4,7 +4,7 @@ ROS 2 mobile-base controller and depth processing for a terrestrial satellite re
 
 ## Project and my contribution
 
-I am **SANGYEOP LEE (이상엽)**. I contributed to **coding and simulation** in the team project *ArUco-marker and ROS2-based Ground Validation Platform for Geostationary Satellite Refueling*, presented at ASSK 2026. This repository contains my `mec_wheel` package, whose original package metadata identifies me as maintainer. Other teammates contributed to the overall platform, including coordinate transformation and robot-arm integration.
+I am **LEE SANGYEOP (이상엽)**. I contributed to **coding and simulation** in the team project *ArUco-marker and ROS2-based Ground Validation Platform for Geostationary Satellite Refueling*, presented at ASSK 2026. This repository contains my `mec_wheel` package, whose original package metadata identifies me as maintainer. Other teammates contributed to the overall platform, including coordinate transformation and robot-arm integration.
 
 This repository documents a laboratory prototype and preserves the existing published controller behavior. It is not on-orbit refueling flight software.
 
@@ -61,6 +61,7 @@ The team workspace used **ROS 2 Humble** on Linux with Python. The package needs
 
 ```bash
 source /opt/ros/humble/setup.bash
+rosdep install --from-paths src --ignore-src -y
 colcon build --packages-select mec_wheel
 source install/setup.bash
 ros2 pkg executables mec_wheel
