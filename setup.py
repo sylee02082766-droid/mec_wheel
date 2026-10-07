@@ -16,7 +16,7 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='Leesangyeop',
-    maintainer_email='sylee3023@kau.kr',
+    maintainer_email='portfolio@example.invalid',
     description='Mecanum wheel control package for satellite docking',
     license='Apache-2.0',
     tests_require=['pytest'],

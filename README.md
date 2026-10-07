@@ -1,69 +1,112 @@
-# mec_wheel
-전자과 캡디 코드(위성재급유 시스템)
+# mec_wheel — Satellite Refueling Ground Platform
 
-launch 파일에 10초 뒤 시작한다는 설정을 넣었습니다.
+ROS 2 mobile-base controller and depth processing for a terrestrial satellite refueling ground validation project.
 
-작동 시나리오
-1. 탐색
-처음에는 Aruco Marker 안보임
-Depth camera를 이용하여 위성 벽면과의 거리를 1.5m로 유지하며, 위성 주변을 오른쪽으로(매그넘 휠 기준) 즉 위에서 보면 반시계 방향으로 둥글게 돔.(게걸음 원궤도 비행)
+## Project and my contribution
 
-- angular.y = abs(MAV_V) / 1.5 로 설정해둠.
-원운동 공식 v = r * w로 인해 r = 1.5, v = 0.3m/s 이므로 w값이 저렇게 설정 됨.
+I am **SANGYEOP LEE (이상엽)**. I contributed to **coding and simulation** in the team project *ArUco-marker and ROS2-based Ground Validation Platform for Geostationary Satellite Refueling*, presented at ASSK 2026. This repository contains my `mec_wheel` package, whose original package metadata identifies me as maintainer. Other teammates contributed to the overall platform, including coordinate transformation and robot-arm integration.
 
-2. 조준 및 정렬
-카메라에 Aruco Marker가 발견 시, Depth camera말고 RGB camera 사용.
-매그넘휠은 Marker가 카메라 화면 한가운데 올 때까지 속도를 줄이면서 정렬을 시작함.
-Marker와 각도가 틀어져있으면 매그넘휠의 heading을 돌려 시선을 맞추고, 좌우 오차가 5cm 이내가 될 때까지 정렬함.
+This repository documents a laboratory prototype and preserves the existing published controller behavior. It is not on-orbit refueling flight software.
 
-- 중심에서 5cm 이내로 들어왔는가?(좌우 오차 5cm 이내)
--> abs(marker_x) < 0.05
-로 구현.
+## What the package does
 
-- 카메라의 FOV는 가로87도 x 세로58도임.
-코드에 FOV의 반인 43.5를 self.HALF_FOV_RAD로 설정.
+`mec_wheel_node` receives marker poses and target depth, then publishes mobile-base commands and status through four states:
 
-(1) theta = math.atan2(abs(marker_x), marker_z)
-카메라 정면 기준 마커가 좌우로 얼마나 치우쳐져 있는지 각도를 arctan 삼각함수로 구함.
+```mermaid
+flowchart LR
+    A[Blind orbit / search] -->|Marker detected| B[Align]
+    B -->|Lateral error below 0.05 m| C[Approach]
+    C -->|Marker distance at most 0.30 m| D[Stop]
+    B -->|Marker lost| A
+    C -->|Marker lost| A
+```
 
-(2) w = min(theta / HALF_FOV_RAD, 1.0)
-구한 각도를 0부터 1 사이의 퍼센트로 정규화 시킴.
-화면 맨 끝에 마커가 있으면 1(100%), 화면 정중앙에 있으면 0(0%)이 됨.
+In the preserved controller, the nominal search/alignment distance is **1.5 m**, maximum lateral search command is **0.3**, the approach threshold is **0.30 m**, and the control timer is **0.1 s**. `stopped` is published in the stop state.
 
-(3) msg.linear.y = MAX_V * w
-퍼센트를 속도에 곱해줌. 마커가 멀리 있으면 속도가 높고, 마커가 카메라의 중앙에 가까워질수록 속도가 0으로 수렴을 하게 됨.
+`depth_center_node` processes a central ROI of a `16UC1` depth image, rejects invalid pixels, takes the median of valid values and applies a low-pass filter. Its defaults are an **80 × 60** ROI, **0.001** depth scale (mm to m), **0.10–3.00 m** valid range, at least **30** valid pixels and **0.35** filter alpha.
 
-(4) msg.linear.x = 1.0 * (marker_z - 1.5)
-1.5m를 유지해야하므로 이 코드를 넣음. 현재 거리가 1.6m로 멀어지면 0.1의 속도로 전진, 1.4m로 가까워지면 -0.1의 속도로 후진
+## ROS interfaces
 
-(5) msg.angular.y = -0.5 * marker_x
-마커가 화면 중심(x=0)에 오도록 고개를 돌려주는 역할
+| Node | Direction | Topic | Type |
+|---|---|---|---|
+| `mec_wheel_node` | Subscribe | `/aruco_tf` | `geometry_msgs/PoseArray` |
+| `mec_wheel_node` | Subscribe | `/target_depth` | `std_msgs/Float32` |
+| `mec_wheel_node` | Publish | `/cmd_vel` | `geometry_msgs/Twist` |
+| `mec_wheel_node` | Publish | `/wheel_status` | `std_msgs/String` |
+| `depth_center_node` | Subscribe | `/camera/camera/depth/image_rect_raw` (parameterized) | `sensor_msgs/Image` |
+| `depth_center_node` | Publish | `/target_depth` (parameterized) | `std_msgs/Float32` |
 
-3. 전진
-완벽하게 일직선으로 정렬이 되면, 매그넘휠은 1.5m 거리에서 30cm 앞까지 천천히 직진함.
+The robot uses a platform-specific `Twist` convention: **`linear.z` = forward/backward**, **`linear.x` = lateral**, **`angular.y` = rotation**. A motor bridge must use the same convention; standard planar ROS `cmd_vel` axes must not be assumed.
 
-4. 도킹 완료 및 신호 전달
-30cm 거리에 도달 시 로봇은 모든 바퀴를 멈춤.
-'Stopped'라는 신호를 publish함.
+## Layout
 
-좌표계
-매그넘휠의 중심(0,0,0) 기준임.
-1. 전진/후진 : linear.z(z축)
-2. 옆으로 가기 : linear.x(x축, 양수면 오른쪽)
-3. 제자리 회전 : angular.y(y축 수직 기준)
+```text
+mec_wheel/
+├── launch/mec_wheel.launch.py
+├── mec_wheel/
+│   ├── __init__.py
+│   ├── mec_wheel_node.py
+│   └── depth_center_node.py
+├── resource/mec_wheel
+├── package.xml
+├── setup.py
+└── setup.cfg
+```
 
-4. 마커의 좌/우 : marker_x(x축, +면 우측, -면 좌측)
-5. 마커의 앞/뒤 : marker_z(앞쪽 거)
+Both existing console entry points are preserved: `mec_wheel_node` and `depth_center_node`.
 
-통신 데이터
-subscribers
-1. /aruco_poses(geometry_msgs/PoseArray)
-Aruco Marker가 매그넘휠로부터 얼마나 떨어져있는지 알려주는 좌표(X, Z)
-2. /target_depth(std_msgs/Float32)
-Marker가 안 보일 때 위성 외벽까지의 거리를 알려주는 Depth 센서 값
-(급발진 방지를 위해 0.1m ~ 3.0m 사이의 값만 받는다고 설정. 만약 이 범위가 아닐 경우 has_depth가 false가 되어 linear.x와 angular.y만 실행됨.)
-publishers
-1. /cmd_vel(geometry_msgs/Twist)
-실제 주행 명령
-2. /wheel_status(std_msgs/String)
-현재 로봇의 상태를 알려줌. 이동 중일 때는 moving, 30cm 앞 정지가 되면 stopped를 publish함.
+## Build and inspect
+
+The team workspace used **ROS 2 Humble** on Linux with Python. The package needs `rclpy`, `geometry_msgs`, `std_msgs`, `sensor_msgs`, NumPy, `launch` and `launch_ros`. Clone this repository under a workspace's `src` directory, then run from the workspace root:
+
+```bash
+source /opt/ros/humble/setup.bash
+colcon build --packages-select mec_wheel
+source install/setup.bash
+ros2 pkg executables mec_wheel
+```
+
+Start only the depth-processing node:
+
+```bash
+ros2 run mec_wheel depth_center_node
+```
+
+For a camera with a different depth topic:
+
+```bash
+ros2 run mec_wheel depth_center_node --ros-args \
+  -p depth_image_topic:=/your/depth/topic
+```
+
+The existing launch starts **only `mec_wheel_node` after 10 seconds**; it does not start the camera, ArUco detector or depth estimator:
+
+```bash
+ros2 launch mec_wheel mec_wheel.launch.py
+```
+
+It emits motion commands once the controller starts. For message inspection, use an isolated ROS graph with no motor bridge or actuator subscribed, and inspect `/cmd_vel` and `/wheel_status`. Physical testing requires the original calibrated platform and complete team workspace.
+
+## External components and attribution
+
+The larger ground platform uses external components, not redistributed here as personal code:
+
+- [JMU-ROBOTICS-VIVA/ros2_aruco](https://github.com/JMU-ROBOTICS-VIVA/ros2_aruco) — ArUco detector (MIT).
+- [IntelRealSense/realsense-ros](https://github.com/IntelRealSense/realsense-ros) — camera driver.
+- Team `aruco_tf` — marker-coordinate transformation feeding `/aruco_tf`.
+- Team I2C/motor bridge — consumes the platform-specific `/cmd_vel`.
+- Teammate arm/MoveIt integration, using [pymoveit2](https://github.com/AndrejOrsula/pymoveit2), consumes the stop/status workflow outside this package.
+
+The controller can build independently; the full experiment requires these sensor and hardware components.
+
+## Current prototype limits and validation
+
+The runtime source is preserved from the repository's existing revision `ef3b5d5` so portfolio cleanup does not change physical robot behavior. Python syntax, package XML, resource files and both console entry points were checked. A ROS 2 build or physical experiment was not run in the Windows preparation environment.
+
+Known points for further development: callbacks do not reject stale marker/depth samples; the blind-orbit depth correction currently reads `marker_z` rather than `depth_distance`; control gains, distances and axis conventions are hard-coded for the prototype. These limits are documented rather than silently changed during repository organization.
+
+한글 요약: 위성 재급유 지상 검증 프로젝트에서 담당한 메카넘 휠 제어와 Depth 센서 처리 코드입니다. 기존 실행 동작과 ROS 패키지 구조는 유지하고, 담당 범위·토픽·빌드 방법·현재 한계를 정리했습니다. 조원과 외부 라이브러리의 코드는 별도 구성요소로 구분했습니다.
+
+## License
+
+The existing package declares **Apache-2.0**. That declaration is preserved and the standard license text is supplied in [LICENSE](LICENSE). Personal student email metadata is replaced with a non-contact placeholder; the maintainer name is retained. Upstream components retain their own licenses.

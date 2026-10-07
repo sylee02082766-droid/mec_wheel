@@ -1,0 +1,16 @@
+build/
+install/
+log/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env*
+*.key
+*.pem
+*.bag
+*.db3
+*.mcap
+*.swp
+.DS_Store
+Thumbs.db

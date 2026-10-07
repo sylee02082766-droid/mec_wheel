@@ -1,0 +1,2 @@
+# Non-ROS Python dependency; ROS messages and rclpy come from ROS 2.
+numpy
